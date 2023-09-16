@@ -1,59 +1,66 @@
 #pragma once
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #ifndef LINEAR_H
 #define LINEAR_H
-/*--------------------------------
- *          STACKS 
- *--------------------------------
- * 
-*/
-typedef struct Stack Stack;
-
-Stack* createStack(const int capacity);
-
-void destroyStack(Stack* stack);
-
-bool isFull(const Stack* stack);
-
-bool isEmpty(const Stack* stack);
-
-bool peek(const Stack* stack, int* item);
-
-bool popItem(Stack* stack, int* item);
-
-bool pushItem(Stack* stack, const int item);
-
-/*--------------------------------
- *          QUEUES 
- *--------------------------------
- * 
-*/
-
-typedef struct Queue Queue;
-
-
-/*--------------------------------
- *          LINKED LIST 
- *--------------------------------
- * 
-*/
-
-typedef struct Node Node;
-
-void destroyNode(Node* node);
+/* 
+ * LINKED LISTS 
+*/ 
 
 typedef struct LinkedList LinkedList;
 
-void destroyNode(Node* node);
+LinkedList* llCreate(const bool as_copy);
 
-LinkedList* createLinkedList();
+void llDestroy(LinkedList* ll);
 
-void destroyLinkedList(LinkedList* linked_list);
+bool llPrepend(LinkedList* ll, void* data, const size_t data_size);
 
-bool insertLinkedList(LinkedList* linked_list, const int item);
+void* llPeek(LinkedList* ll, const bool as_copy, size_t* const data_size);
 
-bool popItemLinkedList(LinkedList* linked_list, const int item);
+void* llPop(LinkedList* ll, size_t* const data_size);
 
-#endif
+/** 
+ * Double Linked Lists 
+*/
+
+/*
+ * DYNAMIC ARRAYS 
+*/ 
+typedef struct DynArr DynArr;
+/**
+ * @brief Crate a new dynamic allocated array
+ * @param capacity
+ *  the minimal capacity of the array. The actual capacity stored is the
+ *  least power of two larger than the capacity.
+ * @param data_size
+ *  the size of the data to be stored.
+ * @param as_copy
+ *  determines if the stored data should be copied at insertions or updates.
+ * @return 
+ *  a new dynmaic allocated array. If there were any problems allocating memory or 
+ *  overflow of `size_t`, it will return a NULL array.
+*/ 
+DynArr* dynarrCreate(const size_t capacity, const size_t data_size, const bool as_copy);
+
+/**
+ * @brief deleting function for a dynamic allocated array.
+ * @param da
+ *  the array to be destroyed.
+*/ 
+void dynarrDestroy(DynArr* da);
+
+bool dynarrPush(DynArr* da, void* data);
+
+bool dynarrSet(DynArr* da, const size_t index, void* data);
+
+void* dynarrGet(DynArr* da, const size_t index, const bool get_copy);
+
+void* dynarrPop(DynArr* da, size_t index);
+
+/**
+ * STACKS 
+*/
+
+
+#endif// LINEAR_H
