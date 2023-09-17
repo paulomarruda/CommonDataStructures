@@ -10,7 +10,14 @@
 #define HASH_TABLE_H
 #include <stdbool.h>
 #include "hash_fun.h" 
- 
+/*
+ * SETS
+*/
+
+typedef struct Set Set;
+
+
+
 /* HASH ht WITH STRING KEYS */
 
 

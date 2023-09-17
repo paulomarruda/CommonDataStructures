@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/hash_table.h"
+#include "../include/hash.h"
 
-#define NUM_LINES 1000000000
+#define NUM_LINES 100000000000UL
 
 static char* generateHex(void){
     static const char hexdigit[16] = "0123456789abcdef";

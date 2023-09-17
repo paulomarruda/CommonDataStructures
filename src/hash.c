@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <string.h>
-#include "../include/hash_table.h"
+#include "../include/hash.h"
 
+/*
+ * Hash Tables
+*/
 
 typedef struct HashTableEntry{
     union {
@@ -371,4 +374,3 @@ void* htGetDataFromIter(const HashTableIter* const iter){
     }
     return iter->ht->entries[iter->index]->data;
 }
-
