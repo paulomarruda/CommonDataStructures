@@ -18,7 +18,7 @@ uint64_t FNV1aHash(void* key, KeyType type){
             }
             break;
         case INT_KEY:
-            int_key = (uint64_t) *(int*) int_key;
+            int_key = (uint64_t) *(int*) key;
             hash ^= int_key;
             hash *= _FNV_PRIME;
             break;

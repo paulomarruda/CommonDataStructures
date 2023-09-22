@@ -42,6 +42,9 @@ void setDelete(Set* set);
  *  `true` if the key was found in the set, or `false` otherwise.
 */
 
+/**
+ * @brief Constant to determine if the set should expand.
+ */
 #define EXPAND_RATE_CHECK 0.75
 
 bool setContains(const Set* set, const void* key);

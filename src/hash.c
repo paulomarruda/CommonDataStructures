@@ -100,11 +100,14 @@ HashTable* htCreate(const HashFunction hash_fun, const size_t min_capacity,
     size_t capacity = 1 << pow;
     HashTable* new_table = (HashTable*) malloc(sizeof(HashTable));
     if (!new_table){
-        goto alloc_error;
+        //handle errors
+        return (HashTable*) NULL;
     }
     HashTableEntry** entries = (HashTableEntry**) malloc(capacity*sizeof(HashTableEntry*));
     if (!entries){
-        goto alloc_error;
+        //handle errors
+        free(new_table);
+        return (HashTable*) NULL;
     }
     new_table->key_type = key_type;
     new_table->entries = entries;
@@ -113,15 +116,6 @@ HashTable* htCreate(const HashFunction hash_fun, const size_t min_capacity,
     new_table->hash_fun = hash_fun;
     new_table->is_copy = copy_data;
     return new_table;
-    alloc_error:
-        //handle error
-        if (entries){ 
-            free(entries); 
-        }
-        if (new_table){ 
-            free(new_table); 
-        }
-        return (HashTable*) NULL;
 }
 
 static void _htDestroyEntry(HashTableEntry* entry, KeyType type, bool is_copy){
