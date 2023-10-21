@@ -10,7 +10,6 @@
 #include <time.h>
 #include <stdio.h>
 #include "../include/hash.h"
-#include "../include/hash_fun.h"
 
 int* twoSum(const int* arr, const size_t arr_len, const int target);
 
@@ -34,13 +33,13 @@ int* twoSum(const int* arr, const size_t arr_len, const int target){
     answer[1] = -1;
     for (int i=0; i<arr_len; i++){
         int complement = target - arr[i];
-        void* data = htGet(ht, &complement, false);
+        const void* data = htGet(ht, &complement, false);
         if (data){
             answer[0] = i;
             answer[1] = *(int*) data;
             break;
         }else{
-            htSet(ht, (void*) &arr[i], &i, sizeof(size_t));
+            htSet(ht, (void*) &arr[i], sizeof(size_t), &i, sizeof(size_t));
         }
     }
     htDelete(ht);
