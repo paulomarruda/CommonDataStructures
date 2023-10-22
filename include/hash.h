@@ -79,8 +79,7 @@ typedef struct Set Set;
  * `INVALID_CAPACITY`
  * @see `setDelete`, `ALLOCATION_ERROR`, `INVALID_CAPACITY`
 */
-Set* setCreate(const cds_size min_capacity, const cds_bool as_copy, 
-               const HashFunction hash_fun, const KeyType key_type);
+Set* setCreate(const cds_size min_capacity, const HashFunction hash_fun, const KeyType key_type);
 
 /**
  * @brief deleting function for the set structure.
@@ -113,123 +112,84 @@ bool setSearch(const Set* const set, const void* const key);
  * @brief API for the hash table structure.
 */
 
-/**
- * @brief Opaque definition of the hash table type.
+/*!
+ * @brief Opaque definition of the hash table structure.
+ * @note The API does not hold ownership over the data or the keys stored. As such,
+ * any memory allocations to create the pair key and data will not be freed by
+ * the table's destructor function.
 */
 typedef struct HashTable HashTable;
 
 /**
  *
- * @brief Creating function for the hash table structure.
- *
- * The function will allocate memory
- * for the new ht and thus should be freed at the end of its used by
- * the function `htstrDelete`.
- *
- * @param hashFun
- * The hashing function to be used by the ht
- * @param min_capacity
- * The minimum capacity that the hash table should have.
- * @param copy_data 
- * Indicates wether the ht should copy data when insertion function
- * is invoked. If true, the ht will allocate memory and copy for both the
- * string and the data. This allocated memory is freed automatically when
- * the hash table is destroyed.
- * @param key_type
- * Indicates the type of the key.
- *
- * @returns
- * A pointer for the new hash table.
- *
- * @see htstrDelete
- *
- * @raises
- * ALLOCATION_ERROR
- * If `malloc` fails to allocate memory for the table.
- * INVALID_CAPACITY
- * If non-positive `min_capacity` was passed.
- * OVERFLOW_ERROR
- * If overflow ocurs in `size_t` when determine the
- * capacity of the table.
- *
- * @constrains 
- * `capacity` should not be zero and should fit in the `size_t` 
- * type, i.e. should be less than or equal to SIZE_MAX.
+ * @brief Constructor function for the hash table structure.
+ * @note This function will return a memory allocated pointer to a new and empty
+ * hash table. This pointer should later be deleted by the destructor function for the
+ * hash table structure. Currently, the API supports integers type key (`INT_KEY`)
+ * and string (null terminated `char` pointers, `STR_KEY`) as keys. The actual capacity
+ * stored at the new table is the least power of 2 larger than the `min_capacity`.
+ * @param hashFun A function pointer to the hashing function.
+ * @param min_capacity The minimum capacity that the hash table should have.
+ * @param key_type Indicates the type of the key.
+ * @returns A pointer for a new hash table if all memory allocations were successeful,
+ * or a `NULL` pointer if either the memory allocations fail or overflow of `size_t`
+ * occours.
+ * @see `htstrDelete`.
  */ 
 HashTable* htCreate(const HashFunction hash_fun, const cds_size min_capacity, 
                     const KeyType key_type);
 
-/**
- * Deleting function for the HashTableStr 
- *
- * @brief Free the allocated memory for the ht and its components.
- *
- * @param ht
- * The ht to be deleted.
- *
+/*!
+ * @brief Destructor function for the hash table structure.
+ * @param ht A pointer to the hash table.
+ * @note This function does not free any memory allocation that occoured for the
+ * creation of the keys and the data stored; as such, they should be freed properly
+ * to avoid memory leaks.
  */ 
 void htDelete(HashTable* ht);
 
 /**
  * @brief Searching function for the hash table structure.
- *
  * @param ht A pointer to the hash table.
- * @param key The key to be searched.
+ * @param key A pointer to the key.
  * @return True if the key is present in the table, or false otherwise.
 */
 bool htSearch(const HashTable* const ht, const void* key);
 
-/**
- * Inserting/updating function for the HashTableStr. 
- *
- * @brief The inserting function for the HashTableStr will insert or update
- * data in the ht. If the ht was created as a copy ht,
- * this function will allocate memory for data inserted, otherwise it will 
- * only reference the position of the pair (key, data) in the ht. If there 
- * were any problems with the insertion, the global variables ALLOCATION_ERROR 
- * and INSERTION_ERROR. If the ht is at 70% of its total capacity, this function
- * will also expand the ht twice the current capacity.
- *
- * @param ht 
- * The ht where the insertion will be performed. 
- * @param key
- * A nul terminated `char` pointer (string).
- * @param data_size 
- * The data to be added.
- * @return 
- * true if the insertion was successeful, or false otherwise.
- * @modify 
- * The ht in use, ALLOCATION_ERROR or INSERTION_ERROR. 
+/*!
+ * @brief Inserting/updating function for the hash table structure.
+ * @param ht A pointer to the hash table.
+ * @param key A pointer to the key.
+ * @param data_size The data to be added/updated.
+ * @return `true` if the insertion was successeful, or false the table cannot expand
+ * further and there are no space left for the insersion.
+ * @note This function will expand the hash table whenever the length of the table + 1
+ * reaches at least 85% of its total capacity. The new capacity will be twice as the
+ * old capacity.
 */
 bool htSet(HashTable* ht, const void* key, const cds_size key_size, const void* data, 
            const cds_size data_size);
-/**
- * Get function for the HashTableStr 
- * @brief This function searches and retrieve data from the hash ht.
- * It will return a void pointer to the data if the key passed was 
- * found in the ht, or a void NULL pointer otherise. The user can 
- * choose if the function returns a reference to the data in the ht 
- * or a copy of the data (that will be dynamically allocated). 
- * @param ht
- * @param key
- * @param get_copy
- * @returns
- * @modifies
+/*! 
+ * @brief This function searches and retrieve data from the hash table.
+ * @param ht A pointer to the table.
+ * @param key A pointer to the key.
+ * @param[out] pdata_size A pointer to the data size of the data to be retrieved.
+ * @returns A void pointer to the data stored at the key, if any, or a `NULL` pointer
+ * otherwise.
  */
-const void* htGet(const HashTable* ht, const void* key);
+const void* htGet(const HashTable* ht, const void* key, cds_size* pdata_size);
 
+/*!
+ * @brief Get funtion for the length of the table.
+ * @param ht A pointer to the hash table.
+ * @return The current length of the table.
+*/
 size_t htLength(const HashTable* ht);
-
+/*!
+ * @brief Get function for the capacity of the table.
+ * @param ht A pointer to the table.
+ * @return The current capacity of the table.
+*/
 size_t htCapacity(const HashTable* ht);
-
-typedef struct HTIter HTIter; 
-
-HTIter* htiterCreate(const HashTable* ht);
-
-HTIter* htiterNext(HTIter* iter);
-
-void* htGetKeyFromIter(const HTIter* const iter);
-
-void* htGetDataFromIter(const HTIter* const iter);
 
 #endif // HASH_TABLE_H
