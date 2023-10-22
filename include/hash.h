@@ -9,16 +9,16 @@
 #ifndef HASH_H
 #define HASH_H
 #include "common.h"
-
+#include "linear.h"
 /*
  * Setting the default action for status as to warn.
  * This can be changed by defining the preprossessor
  * macro `DEFAULT_STATUS_ACTION` as `ACTION_EXIT` before
  * including this header.
 */
-#ifndef DEFAULT_STATUS_ACTION
-#define DEFAULT_STATUS_ACTION ACTION_WARN
-#endif //DEFAULT_STATUS_ACTION
+#ifndef HASH_DEFAULT_STATUS_ACTION
+#define HASH_DEFAULT_STATUS_ACTION ACTION_WARN
+#endif //HASH_DEFAULT_STATUS_ACTION
 
 /**
  * HASH FUNCTIONS
@@ -31,7 +31,6 @@
 typedef enum KeyType{
     STR_KEY,
     INT_KEY,
-    SIZE_KEY,
 }KeyType;
 
 /**
@@ -158,7 +157,7 @@ typedef struct HashTable HashTable;
  * type, i.e. should be less than or equal to SIZE_MAX.
  */ 
 HashTable* htCreate(const HashFunction hash_fun, const cds_size min_capacity, 
-                   const cds_bool copy_data, const KeyType key_type);
+                    const KeyType key_type);
 
 /**
  * Deleting function for the HashTableStr 
@@ -217,7 +216,7 @@ bool htSet(HashTable* ht, const void* key, const cds_size key_size, const void* 
  * @returns
  * @modifies
  */
-const void* htGet(const HashTable* ht, void* key, const cds_bool get_copy);
+const void* htGet(const HashTable* ht, const void* key);
 
 size_t htLength(const HashTable* ht);
 
