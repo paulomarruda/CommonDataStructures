@@ -42,6 +42,7 @@ cds_int main(){
 ```
 
 # TO-DO:
+- add unit tests.
 - Add error handling;
 - Add cross-compiler preprocessors;
 - Add cross-plataform preprossessors; and
