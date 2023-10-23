@@ -1,11 +1,18 @@
-/*
- *  HASH API 
- *  @brief The design has been based on Bob Nystrom’s Crafting 
- *  Interpreters book's chapter on hash hts and a post by 
- *  Ben Hoyt named How to Implement a Hash ht (in C). I modified the API
- *  to attend some safety concerns and add some modularity 
- *
+/*!
+ * @file hash.h
+ * @copyright GNU General Public Licence 3 or Later (GPLv3).
+ * @author Paulo Arruda
+ * @brief Header file containing the APIs for hash table and sets. The design has been
+ * based on Bob Nystrom’s Crafting Interpreters book's chapter on hash hts and a post by Ben Hoyt named How to Implement a Hash Table 
+ *  (in C). I modified the API to attend some safety concerns and add some modularity.
+ *  @defgroup hash
+ *  @{
 */ 
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #ifndef HASH_H
 #define HASH_H
 #include "common.h"
@@ -20,19 +27,23 @@
 #define HASH_DEFAULT_STATUS_ACTION ACTION_WARN
 #endif //HASH_DEFAULT_STATUS_ACTION
 
-/**
- * HASH FUNCTIONS
- * @brief API for hash functions and key types.
-*/
-
-/**
- * @brief The types of key supported so far.
+/*!
+ * @brief The types of key supported by the hash API.
 */
 typedef enum KeyType{
     STR_KEY,
     INT_KEY,
+    UINT_KEY,
+    STR_TUPLE_KEY,
+    INT_TUPLE_KEY,
+    UINT_TUPLE_KEY,
 }KeyType;
 
+/**
+ * Declaring the hash functions for 64bits archiqueture.
+*/
+
+#ifdef __CDS_ARCH64__
 /**
  * @brief Type definition for hash function pointers.
 */
@@ -44,14 +55,28 @@ typedef cds_uint64 (*HashFunction)(const void *key, const KeyType type);
  * A non-cryptographic hash function.
  *
 * @param key The key to be hashed
-* @param key_type The type of the key
-* @return the hash
+* @param key_type The type of the key.
+* @return the hash.
 */
-cds_uint64 FNV1aHash(const void* key, const KeyType key_type);
+cds_hash fnv1aHash(const void* key, const KeyType key_type);
+
+/**
+ * Declaring the hash functions for 32bits archiqueture.
+*/
+#else
+/*!
+ * @brief Opaque definition for hash 32 function pointer.
+*/
+typedef cds_uint32 (*HashFunction)(const void* key, const KeyType type);
+
+cds_uint32 FNV1aHash(const void* key, const KeyType key_type);
+
+#endif //__CDS_ARCH64__
+
 
 /*
  * SETS
- * @brief API for the set structure.
+ * ----
 */
 
 /**
@@ -69,14 +94,10 @@ typedef struct Set Set;
  * the least power of two greater than the minimum capacity passed.
  *
  * @param min_capacity
- * @param as_copy
  * @param hash_fun
  * @param key_type
  * @return A pointer to new empty set, if memory allocations were successeful, or 
  * a NULL pointer otherwise.
- * @raises
- * `ALLOCATION_ERROR`
- * `INVALID_CAPACITY`
  * @see `setDelete`, `ALLOCATION_ERROR`, `INVALID_CAPACITY`
 */
 Set* setCreate(const cds_size min_capacity, const HashFunction hash_fun, const KeyType key_type);
@@ -192,4 +213,9 @@ size_t htLength(const HashTable* ht);
 */
 size_t htCapacity(const HashTable* ht);
 
+/*! @} */ // end of hash group.
+
 #endif // HASH_TABLE_H
+#ifdef __cplusplus
+};
+#endif // __cplusplus

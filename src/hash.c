@@ -1,38 +1,78 @@
-#include <limits.h>
-#include "../include/hash.h"
+#include "../include/_private_hash.h"
+
 /**
  * HASH FUNCTIONS
  * --------------
  * Implementation of the hash functions we use.
 */
 
-/**
- * 64BITs HASHING
-*/
-
+#ifdef __CDS_ARCH64__
 #define _FNV_OFFSET 14695981039346656037UL
 #define _FNV_PRIME 1099511628211UL
+#else // 32 BITS HASHING
+#define _FNV_OFFSET 2166136261
+#define _FNV_PRIME 16777619
+#endif // __CDS_ARCH64__
 
-cds_uint64 FNV1aHash(const void* key, const KeyType key_type){
-    cds_uint64 hash = _FNV_OFFSET;
-    const cds_char* str_key = (void*) NULL;
-    cds_uint64 int_key = 0;
-    switch (key_type) {
+/* Hashes an integer type **/
+static cds_hash _fnv1aHashNumber(const void* key, cds_hash* phash){
+    *phash ^= *(cds_hash*) (cds_uchar*) key;
+    *phash *= _FNV_PRIME;
+    return *phash;
+}
+
+/* Hashes a string type **/
+static cds_hash _fnv1aHashStr(const void* key, cds_hash* phash){    
+    for (const cds_char* p= (const cds_char*) key; *p; p++){
+        *phash ^= (cds_hash) (cds_uchar) *p;
+        *phash *= _FNV_PRIME;
+    }
+    return *phash;
+}
+
+/* Hashes a tuple type **/
+static cds_hash _fnv1aHashTuple(const void* key, const KeyType key_type, cds_hash* phash){
+    Tuple* tuple = (Tuple*) key;
+    for (cds_size i=0; i < tupleLength(tuple); i++){
+        switch (key_type){
+            case STR_TUPLE_KEY:
+                _fnv1aHashStr(tupleGetAt(tuple, i), phash);
+            case INT_TUPLE_KEY:
+                _fnv1aHashNumber(tupleGetAt(tuple, i), phash);
+            case UINT_TUPLE_KEY:
+                _fnv1aHashStr(tupleGetAt(tuple,i), phash);
+            default:
+                break;
+        }
+    }
+    return *phash;
+}
+
+cds_hash fnv1aHash(const void* key, const KeyType key_type){
+    cds_hash hash = _FNV_OFFSET;
+    switch (key_type){
         case STR_KEY:
-            str_key = (const cds_char*) key;
-            for (const cds_char* p=str_key; *p!='\0'; p++){
-                hash ^= (cds_uint64) (cds_uchar) *p;
-                hash *= _FNV_PRIME;
-            }
+            (void) _fnv1aHashStr(key, &hash);
             break;
         case INT_KEY:
-            int_key = *(cds_uint64*) key;
-            hash ^= int_key;
-            hash *= _FNV_PRIME;
+            (void) _fnv1aHashNumber(key, &hash);
+            break;
+        case UINT_KEY:
+            (void) _fnv1aHashNumber(key, &hash);
+            break;
+        case STR_TUPLE_KEY:
+            (void) _fnv1aHashTuple(key, STR_TUPLE_KEY, &hash);
+            break;
+        case INT_TUPLE_KEY:
+            (void) _fnv1aHashTuple(key, INT_TUPLE_KEY, &hash);
+            break;
+        case UINT_TUPLE_KEY:
+            (void) _fnv1aHashTuple(key, UINT_TUPLE_KEY, &hash);
             break;
     }
     return hash;
 }
+
 /**
  * AUXILIARY FUNCTIONS
  * -------------------
@@ -40,8 +80,10 @@ cds_uint64 FNV1aHash(const void* key, const KeyType key_type){
  * will be used by the data structures implemented here. 
 */
 
-#define LENGTH(hash) hash? hash->length: 0
-#define CAPACITY(hash) hash? hash->capacity: 0
+#define LENGTH(container) (container? container->length: 0)
+
+#define CAPACITY(container) (container? container->capacity: 0)
+
 #define GET_EXANSION_RATE(capacity) (((double) capacity) * _EXPANSION_RATE_CHECK)
 #define INVALID_SIZE(size) ((0 == size)? true: false)
 /**
@@ -49,27 +91,77 @@ cds_uint64 FNV1aHash(const void* key, const KeyType key_type){
 */
 static cds_size _hashGetIndexFromKey(const HashFunction hash_fun, KeyType key_type, 
                                      const void* key, const cds_size capacity){
-    cds_uint64 hash = hash_fun(key, key_type);
+    cds_hash hash = hash_fun(key, key_type);
     // since the capacity is always a power of two
     // the reminder can be done easily by the following bitwise op
-    cds_size index = (cds_size) (hash & ( (cds_uint64)(capacity - 1) ));
+    cds_size index = (cds_size) (hash & ( (cds_hash)(capacity - 1) ));
     return index;
 }
 
 /**
  * Returns whether the keys are equal.
 */
+
+#define DEFER_VOID_PTR(ptr, type) (*(type*) ptr)
+#define NUM_KEY_COMP(key1, key2, type) (DEFER_VOID_PTR(key1, type) == DEFER_VOID_PTR(key2, type))
+#define STR_KEY_COMP(key1, key2) (0 == strcmp((const cds_char*) key1, (const cds_char*) key2))
+
+static cds_bool _hashTupleComp(const void* key1, const void* key2, const KeyType key_type){
+    Tuple* t1 = (Tuple*) key1;
+    Tuple* t2 = (Tuple*) key2;
+    if (tupleLength(t1) != tupleLength(t2)){
+            return false;
+    }
+    const void* _key1;
+    const void* _key2;
+    for (cds_size i=0; i<tupleLength(t1); i++){
+        _key1 = tupleGetAt(t1, i);
+        _key2 = tupleGetAt(t2, i);
+        switch (key_type){
+            case STR_TUPLE_KEY:
+                if (!STR_KEY_COMP(_key1, _key2)){
+                    return false;
+                }
+                break;
+            case INT_TUPLE_KEY:
+                if (!NUM_KEY_COMP(_key1, _key2, cds_intkey)){
+                    return false;
+                }
+                break;
+            case UINT_TUPLE_KEY:
+                 if (!NUM_KEY_COMP(_key1, _key2, cds_uintkey)){
+                    return false;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    return true;
+}
+
 static cds_bool _hashKeyComp(const void* key1, const void* key2, const KeyType key_type){
-    cds_bool result = false;
     switch (key_type) {
-        case INT_KEY:
-            result = (*(cds_int*) key1) == (*(cds_int*) key2);
+        case INT_KEY: 
+            return NUM_KEY_COMP(key1, key2, cds_intkey);
+            break;
+        case UINT_KEY:
+            return NUM_KEY_COMP(key1, key2, cds_uintkey);
             break;
         case STR_KEY:
-            result =  0 == strcmp((cds_char*) key1, (char*) key2);
+            return STR_KEY_COMP(key1, key2);
             break;
+        case STR_TUPLE_KEY:
+            return _hashTupleComp(key1, key2, STR_TUPLE_KEY);
+            break;
+        case INT_TUPLE_KEY:
+            return _hashTupleComp(key1, key2, INT_TUPLE_KEY);
+            break;
+        case UINT_TUPLE_KEY:
+            return _hashTupleComp(key1, key2, UINT_TUPLE_KEY);
+            break;
+
     }
-    return result;
 }
 
 /*
@@ -77,29 +169,6 @@ static cds_bool _hashKeyComp(const void* key1, const void* key2, const KeyType k
  * -----------
  *  Here follows the implementation of a dynamic hash table.
 */
-
-/**
- * Definition of the entries of the hash table structure.
-*/
-typedef struct HTEntry{
-    cds_bool is_tombstone;
-    cds_size key_size;
-    cds_size data_size;
-    const void* data;
-    const void* key;
-}HTEntry;
-
-/**
- * Definition of the hash table structure.
-*/
-struct HashTable{
-    cds_size capacity;
-    cds_size length;
-    KeyType key_type;
-    HashFunction hash_fun;
-    HTEntry* entries;
-};
-
 /**
  * Constructor function for hash table.
 */
@@ -149,8 +218,10 @@ cds_bool htSearch(const HashTable* const ht, const void* key){
         return false;
     }
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || !ht->entries[index].is_tombstone){
-        if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+    while (ht->entries[index].key || ht->entries[index].is_tombstone){
+        if (ht->entries[index].is_tombstone){
+            //pass
+        }else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
             return true;
         }
         index++;
@@ -201,8 +272,11 @@ static bool _htExpand(HashTable* ht){
 static cds_bool _htSetData(HashTable* ht, const void* key, const cds_size key_size,
                            const void* data, const cds_size data_size){
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key){
-        if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+    while (ht->entries[index].key || ht->entries[index].is_tombstone){
+        if (ht->entries[index].is_tombstone){
+            break;
+        }
+        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
             _htUpdateEntry(&ht->entries[index], data, data_size);
             return true;
         }
@@ -211,7 +285,7 @@ static cds_bool _htSetData(HashTable* ht, const void* key, const cds_size key_si
             index = 0;
         }
     }
-    // calloc already initialized `is_tombstone` as 0!
+    ht->entries[index].is_tombstone = false;
     ht->entries[index].key = key;
     ht->entries[index].data = data;
     ht->entries[index].data_size = data_size;
@@ -243,8 +317,11 @@ cds_size htCapacity(const HashTable* const ht){
 
 const void* htGet(const HashTable* ht, const void* key, cds_size* pdata_size){
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || !ht->entries[index].is_tombstone){
-        if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+    while (ht->entries[index].key || ht->entries[index].is_tombstone){
+        if (ht->entries[index].is_tombstone){
+            //pass
+        }
+        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
             if (pdata_size){
                 *pdata_size = ht->entries[index].data_size;
             }
@@ -260,8 +337,11 @@ const void* htGet(const HashTable* ht, const void* key, cds_size* pdata_size){
 
 const void* htPop(HashTable* ht, const void* key){ 
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || !ht->entries[index].is_tombstone){
-        if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+    while (ht->entries[index].key || ht->entries[index].is_tombstone){
+        if (ht->entries[index].is_tombstone){
+            //pass
+        }
+        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
             ht->entries[index].is_tombstone = true;
             ht->entries[index].key = NULL;
             ht->entries[index].key_size = 0;
@@ -284,21 +364,6 @@ const void* htPop(HashTable* ht, const void* key){
  * ----
  *  Implementation of the set structure
 */
-
-typedef struct {
-    cds_bool is_tombstone;
-    size_t key_size;
-    const void* key;
-}SetEntry;
-
-struct Set{
-    KeyType key_type;
-    size_t capacity;
-    size_t length;
-    HashFunction hash_fun;
-    SetEntry* entries;
-};
-
 Set* setCreate(const size_t min_capacity, const HashFunction hash_fun, 
                const KeyType key_type){
     Set* new_set = (Set*) malloc(sizeof(Set));
@@ -325,3 +390,74 @@ Set* setCreate(const size_t min_capacity, const HashFunction hash_fun,
     return new_set;
 }
 
+void setDelete(Set* set){
+    if (!set){
+        return;
+    }
+    free((void*) set->entries);
+    free((void*) set);
+}
+
+bool setInsert(Set *set, const void *key, const cds_size key_size){
+    if (!set || !key || INVALID_SIZE(key_size)){
+        return false;
+    }
+    cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
+    while (set->entries[index].key || set->entries[index].is_tombstone){
+        if (set->entries[index].is_tombstone){
+            break;
+        }else if (_hashKeyComp(set->entries[index].key, key, set->key_type)){
+            return true;
+        }
+        index++;
+        if (set->capacity == index){
+            index  = 0;
+        }
+    }
+    set->entries[index].is_tombstone = false;
+    set->entries[index].key = key;
+    set->entries[index].key_size = key_size;
+    return true;
+}
+
+bool setSearch(const Set *const set, const void *const key){
+    if (!set || !key){
+        return false;
+    }
+    cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
+    while (set->entries[index].key || set->entries[index].is_tombstone){
+        if (set->entries[index].is_tombstone){
+            //pass
+        }else if (_hashKeyComp(set->entries[index].key,key,set->key_type)){
+            return true;
+        }
+        index++;
+        if (set->capacity == index){
+            index = 0;
+        }
+    }
+    return false;
+}
+
+const void* setPop(Set* const set, const void* key){
+    if (!set || !key){
+        return NULL;
+    }
+    cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
+    while (set->entries[index].key || set->entries[index].is_tombstone){
+        if (set->entries[index].is_tombstone){
+            //pass
+        }else if (_hashKeyComp(set->entries[index].key,key,set->key_type)){
+            const void* data = set->entries[index].key;
+            set->entries[index].key = NULL;
+            set->entries[index].key_size = 0;
+            set->entries[index].is_tombstone = true;
+            return data;
+        }
+        index++;
+        if (set->capacity == index){
+            index = 0;
+        }
+    }
+    return NULL;
+}

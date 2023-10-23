@@ -1,5 +1,5 @@
-.PHONY: clean lib examples
-CC := gcc
+.PHONY: clean lib examples doxygen
+CC := clang
 OPTS := -fPIC -g -O3
 INCLUDES := ./include/
 # generate files that include make rules for header files
@@ -28,6 +28,7 @@ examples: $(EXMP) lib | $(BIN)/
 	@ echo "== Compiling the examples =="
 	@ $(foreach T, $(EXMP), \
 	  $(CC) $(CFLAGS) $(T) -lCDS-static -o $(patsubst %.c, %.out, $(T));)
+doxygen: ./doxygen/
 clean:
 	@ echo "== Deleting all .o, .d and .o files =="
 	@ find . -type f -name '*.o' -delete

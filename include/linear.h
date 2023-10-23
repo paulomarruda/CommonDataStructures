@@ -6,11 +6,16 @@
  * @defgroup linear
  * @{
 */
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 #include "common.h"
 
 #ifndef LINEAR_H
 #define LINEAR_H
+
+#include "hash.h"
 
 #ifndef LINEAR_DEFAULT_STATUS_ACTION_ALLOCATION_FAILURE
 #define LINEAR_DEFAULT_STATUS_ACTION_ALLOCATION_FAILURE ACTION_WARN
@@ -159,6 +164,8 @@ void tupleDelete(Tuple* tuple);
  * if any, or `NULL` if the index is out of range.
 */
 const void* tupleGetAt(const Tuple* const tuple, const cds_size index);
+
+cds_size tupleLength(const Tuple* const tuple);
 /**
  * SINGLY LINKED LIST
  * ------------------
@@ -172,7 +179,7 @@ typedef struct SLList SLList;
  * @return A new empty linked list if all allocations of
  * memory were successeful, or NULL otherwise.
 */
-SLList sllistCreate(cds_size data_size);
+SLList* sllistCreate(cds_size data_size);
 /**
  * DOUBLE LINKED LIST
  * ------------------
@@ -193,11 +200,18 @@ enum IterableType{
     TUPLE,
     SLLIST,
     HASH_TABLE,
-    SET
+    SET,
 };
 
 /*!
- * @BRIEF
+ * @brief opaque definition of the linear iterator structure.
+ * @note The linear iterator structure iterates over the CDS container types. The
+ * current supported containers are:
+ * - Vectors;
+ * - Tuples;
+ * - Singly Linked Lists;
+ * - Hash Tables (iteration occours over the keys);
+ * - Sets;
 */
 typedef struct Iter Iter;
 
@@ -233,10 +247,11 @@ Iter* iterNext(Iter* iter);
 /*!
  * @brief Retrieves the data referenced by the iterator.
  * @param iter A pointer to the iterator.
+ * @param[out] pdata_size A pointer to the size of the data to be retrieved.
  * @return A void pointer to the data if any, or a `NULL` pointer if the iterator
  * is empty.
 */
-const void* iterGetData(const Iter* const iter);
+const void* iterGetData(const Iter* const iter, cds_size* const pdata_size);
 
 /*****************************************
  * STACK
@@ -296,5 +311,10 @@ void* queuePop(Queue* queue);
 #endif// LINEAR_H
 
 /**
- * @}
-*/ // End of the linear group.
+ * @} // end of the linear doxygen group.
+*/
+
+#ifdef __cplusplus
+};
+#endif // __cplusplus
+

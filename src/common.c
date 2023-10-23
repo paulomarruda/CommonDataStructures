@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "../include/common.h"
 
-#define ERROR_MESSAGE(internal_message, message) fprintf(stderr, internal_message, message);
+#define ERROR_MESSAGE(internal_message, message, file) fprintf(file, internal_message, message)
 
 struct CDSStatus CDS_ERROR = {
     false,
@@ -24,7 +24,7 @@ void _raise(enum StatusType type, enum StatusAction action, const char* const me
                 case STATUS_SUCCESS:
                     break;
                 case STATUS_ALLOCATION_FAILED:
-                    ERROR_MESSAGE("ALLOCATION ERROR: %s", message)
+                    ERROR_MESSAGE("ALLOCATION ERROR: %s", message, stderr);
                     break;
                 case STATUS_TYPE_OVERFLOW:
                     break;

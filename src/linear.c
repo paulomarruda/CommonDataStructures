@@ -7,21 +7,24 @@
 
 
 #include "../include/linear.h"
+#include "../include/_private_hash.h"
 #include <string.h>
 
 enum ContainerType{
-    C_VECTOR,
-    C_TUPLE,
-    C_SLINKED_LIST,
-    C_DLINKED_LIST,
-    C_STACKS,
+    CDS_VECTOR,
+    CDS_TUPLE,
+    CDS_SLINKED_LIST,
+    CDS_DLINKED_LIST,
+    CDS_STACKS,
+    CDS_HASH_TABLE,
+    CDS_SET,
 };
 
 /** Preprossessors functions for container types */
 
-#define LENGTH(container) container->length
+#define LENGTH(container) (container? container->length: 0)
 
-#define CAPACITY(container) container->capacity
+#define CAPACITY(container) (container? container->capacity: 0)
 
 
 /**
@@ -50,7 +53,7 @@ static cds_bool _checkIndex(const void* const container, const enum ContainerTyp
     }instance;
     cds_bool result = true;
     switch(type){
-        case C_VECTOR:
+        case CDS_VECTOR:
         instance.vec = (Vector*) container;
         if (!instance.vec){
             result = false;
@@ -58,7 +61,7 @@ static cds_bool _checkIndex(const void* const container, const enum ContainerTyp
             result = false;
         }
         break;
-        case C_TUPLE:
+        case CDS_TUPLE:
         instance.tuple = (Tuple*) container;
         if (!instance.tuple){
             result = false;
@@ -121,7 +124,7 @@ void vectorDelete(Vector* vec){
 }
 
 void* vectorGetAt(const Vector* const vec, const size_t index){
-    if (!_checkIndex(vec, C_VECTOR, index)){
+    if (!_checkIndex(vec, CDS_VECTOR, index)){
         return (void*) NULL;
     }
     void* _data = CDS_BYTE_OFFSET(vec->container, vec->data_size*index);
@@ -162,7 +165,7 @@ cds_bool vectorPush(Vector* const vec, void* data){
 }
 
 void* vectorUpdate(Vector* const vec, void* data, const cds_size index){
-    if (!_checkIndex(vec, C_VECTOR, index)){
+    if (!_checkIndex(vec, CDS_VECTOR, index)){
         return (void*) NULL;
     }
     void* _data = vectorGetAt(vec, index);
@@ -228,11 +231,15 @@ void tupleDelete(Tuple* tuple){
 }
 
 const void* tupleGetAt(const Tuple* const tuple, const cds_size index){
-    if (!_checkIndex(tuple, C_TUPLE, index)){
+    if (!_checkIndex(tuple, CDS_TUPLE, index)){
         return (void*) NULL;
     }
     const void* data = (const void*) CDS_BYTE_OFFSET(tuple->container, index*tuple->data_size);
     return data;
+}
+
+cds_size tupleLength(const Tuple* const tuple){
+    return LENGTH(tuple);
 }
 
 /**
@@ -253,8 +260,8 @@ struct SLList{
 
 /** Creator function for the singly linked list strucutre */
 
-SLList sllCreate(const cds_size data_size){
-    return (SLList) {
+SLList* sllCreate(const cds_size data_size){
+    return &(SLList){
         .data_size = data_size,
         .length = 0,
         .head = (SLLNode*) NULL,
@@ -319,9 +326,11 @@ struct Iter{
     cds_size index;
     enum IterableType type;
     union {
-        Vector* vec;
-        Tuple* tuple;
-        SLLNode* head;
+        Vector*     vec;
+        Tuple*      tuple;
+        SLLNode*    head;
+        HashTable*  ht;
+        Set*        set;
     };
 };
 
@@ -335,15 +344,19 @@ Iter* iterCreate(const void* const container, const enum IterableType type){
     }
     switch (type){
         case VECTOR:
-        new_iter->vec = (Vector*) container;
-        break;
+            new_iter->vec = (Vector*) container;
+            break;
         case TUPLE:
-        new_iter->tuple = (Tuple*) container;
+            new_iter->tuple = (Tuple*) container;
         case SLLIST:
-        new_iter->head = ((SLList*) container)->head;;
-        break;
-        default:
-        break;
+            new_iter->head = ((SLList*) container)->head;;
+            break;
+        case HASH_TABLE:
+            new_iter->ht = (HashTable*) container;
+            break;
+        case SET:
+            new_iter->set = (Set*) container;
+            break;
     }
     new_iter->type = type;
     new_iter->index = 0;
@@ -384,29 +397,54 @@ Iter* iterNext(Iter* iter){
             iter->index++;
         }
         break;
-        default:
+        case HASH_TABLE:
+            if (iter->ht->capacity == iter->index){
+                iterDelete(iter);
+                return (Iter*) NULL;
+            }else{
+                while (!iter->ht->entries[iter->index].key || 
+                       !iter->ht->entries[iter->index].is_tombstone){
+                    iter->index++;
+                }
+            }
+        break;
+        case SET:            
+            if (iter->set->capacity == iter->index){
+                iterDelete(iter);
+                return (Iter*) NULL;
+            }else{
+                while (!iter->set->entries[iter->index].key || 
+                       !iter->set->entries[iter->index].is_tombstone){
+                    iter->index++;
+                }
+            }
+
         break;
     }
     return iter;
 }
 
-const void* iterGetData(const Iter* const iter){
+const void* iterGetData(const Iter* const iter, cds_size* const pdata_size){
     if (!iter){
         return NULL;
     }
     const void* data = NULL;
     switch (iter->type){
         case VECTOR:
-        data = vectorGetAt(iter->vec, iter->index);
-        break;
+            data = vectorGetAt(iter->vec, iter->index);
+            break;
         case TUPLE:
-        data = tupleGetAt(iter->tuple, iter->index);
-        break;
+            data = tupleGetAt(iter->tuple, iter->index);
+            break;
         case SLLIST:
-        data = iter->head->data;
-        break;
-        default:
-        break;
+            data = iter->head->data;
+            break;
+        case HASH_TABLE:
+            data = iter->ht->entries[iter->index].key;
+            break;
+        case SET:
+            data = iter->set->entries[iter->index].key;
+            break;
     }
     return data;
 }
