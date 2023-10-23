@@ -159,7 +159,7 @@ cds_bool vectorPush(Vector* const vec, void* data){
     if (vec->length + 1 > vec->capacity){
         return false;
     }
-    memmove(vec->container + vec->length*vec->data_size, data, vec->data_size);
+    memmove(CDS_BYTE_OFFSET(vec->container, vec->length*vec->data_size), data, vec->data_size);
     vec->length++;
     return true;
 }
@@ -169,7 +169,7 @@ void* vectorUpdate(Vector* const vec, void* data, const cds_size index){
         return (void*) NULL;
     }
     void* _data = vectorGetAt(vec, index);
-    memmove(vec->container + index*vec->data_size, data, vec->data_size);
+    memmove(CDS_BYTE_OFFSET(vec->container, index*vec->data_size), data, vec->data_size);
     return _data;
 }
 /** Get the number elements of an dynamic array */
@@ -424,7 +424,7 @@ Iter* iterNext(Iter* iter){
     return iter;
 }
 
-const void* iterGetData(const Iter* const iter, cds_size* const pdata_size){
+const void* iterGetData(const Iter* const iter){
     if (!iter){
         return NULL;
     }
@@ -432,6 +432,7 @@ const void* iterGetData(const Iter* const iter, cds_size* const pdata_size){
     switch (iter->type){
         case VECTOR:
             data = vectorGetAt(iter->vec, iter->index);
+
             break;
         case TUPLE:
             data = tupleGetAt(iter->tuple, iter->index);

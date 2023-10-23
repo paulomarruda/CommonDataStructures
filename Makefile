@@ -11,7 +11,6 @@ EXMP := $(wildcard ./examples/*.c)
 TESTS := $(wildcard ./tests/*.c)
 BIN := bin
 LIBS := -L ./$(BIN)/
-CFLAGS += $(LIBS)
 AR := ar
 ARFLAGS := rcs
 all: lib examples
@@ -27,8 +26,9 @@ lib: $(SRC_O) | $(BIN)/
 examples: $(EXMP) lib | $(BIN)/
 	@ echo "== Compiling the examples =="
 	@ $(foreach T, $(EXMP), \
-	  $(CC) $(CFLAGS) $(T) -lCDS-static -o $(patsubst %.c, %.out, $(T));)
-doxygen: ./doxygen/
+	  $(CC) $(CFLAGS) $(T) $(LIBS) -lCDS-static -o $(patsubst %.c, %.out, $(T));)
+doxygen: ./docs/
+
 clean:
 	@ echo "== Deleting all .o, .d and .o files =="
 	@ find . -type f -name '*.o' -delete

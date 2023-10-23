@@ -251,7 +251,7 @@ Iter* iterNext(Iter* iter);
  * @return A void pointer to the data if any, or a `NULL` pointer if the iterator
  * is empty.
 */
-const void* iterGetData(const Iter* const iter, cds_size* const pdata_size);
+const void* iterGetData(const Iter* const iter);
 
 /*****************************************
  * STACK

@@ -2,8 +2,8 @@
 #include "../include/hash.h"
 
 
-cds_int main(){
-    HashTable* ht = htCreate(FNV1aHash, 3, STR_KEY);
+cds_int main(void){
+    HashTable* ht = htCreate(fnv1aHash, 3, STR_KEY);
     if (!ht){
         return EXIT_FAILURE;
     }
