@@ -130,26 +130,33 @@ cds_size vectorLength(const Vector* const vec);
 */
 cds_size vectorCapacity(const Vector* const vec);
 
-/******************
- * Tuples
- * ------
-*******************/
+/****************** Tuples *******************/
+
 /*!
  * @brief Opaque definition for the tuple structure.
  * @note The tuple API implements an immutable array-like structure inspired
  * by Pythons's `tuple` class.
 */
+
 typedef struct Tuple Tuple;
 
+/*!
+ * @bried Create tuple from values
+ * @param data_size The size of the data to be added.
+ * @return A pointer to a new tuple create from the values, if all memory allocations
+ * were successeful, or a `NULL` pointer otherwise.
+*/
+Tuple* tupleCreate(const cds_size length, const cds_size data_size, ...);
+
 /**
- * @brief Cronstructor function for the tuple structure.
+ * @brief Cronstructor function for the tuple structure from arrays.
  * @param min_capacity
  * @param data_size
  * @return A pointer to a new empty tuple if all memory allocations were
  * successeful, otherwise return a null pointer.
  * @raise
 */
-Tuple* tupleCreate(const void* const arr, const cds_size length, const cds_size data_size);
+Tuple* tupleFromArray(const void* const arr, const cds_size length, const cds_size data_size);
 
 /**
  * @brief Destructor function for the tuple structure.
@@ -157,7 +164,7 @@ Tuple* tupleCreate(const void* const arr, const cds_size length, const cds_size 
 */
 void tupleDelete(Tuple* tuple);
 /**
- * @brief Retrieve data stored in the tuple at the specified index.
+ * @brief Retrieve data stored in the tuple at the specified index
  * @param tuple
  * @param index
  * @return A void pointer to data stored in the tuple at the specified index,

@@ -76,8 +76,8 @@ typedef double          cds_double;
 typedef long double     cds_ldouble;
 
 
-
-#define CDS_BYTE_OFFSET(ptr, nbytes) ((void*) ((cds_byte*)ptr + nbytes))
+#define TYPE_THE_PTR(ptr, type) ((type*) ptr)
+#define CDS_BYTE_OFFSET(ptr, nbytes) ((void*) (TYPE_THE_PTR(ptr, cds_byte) + nbytes))
 
 #define VOID_MEMMV(ptr1, ptr2, num_bytes)
 /**

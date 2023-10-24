@@ -30,7 +30,7 @@ struct HashTable{
     cds_size length;
     KeyType key_type;
     HashFunction hash_fun;
-    HTEntry* entries;
+    HTEntry* container;
 };
 /* Definition of the set entries **/
 typedef struct {
@@ -45,7 +45,7 @@ struct Set{
     size_t capacity;
     size_t length;
     HashFunction hash_fun;
-    SetEntry* entries;
+    SetEntry* container;
 };
 
 #endif // _PRIVITE_HASH_H

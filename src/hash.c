@@ -36,11 +36,14 @@ static cds_hash _fnv1aHashTuple(const void* key, const KeyType key_type, cds_has
     for (cds_size i=0; i < tupleLength(tuple); i++){
         switch (key_type){
             case STR_TUPLE_KEY:
-                _fnv1aHashStr(tupleGetAt(tuple, i), phash);
+                (void) _fnv1aHashStr(tupleGetAt(tuple, i), phash);
+                break;
             case INT_TUPLE_KEY:
-                _fnv1aHashNumber(tupleGetAt(tuple, i), phash);
+                (void) _fnv1aHashNumber(tupleGetAt(tuple, i), phash);
+                break;
             case UINT_TUPLE_KEY:
-                _fnv1aHashStr(tupleGetAt(tuple,i), phash);
+                (void) _fnv1aHashStr(tupleGetAt(tuple,i), phash);
+                break;
             default:
                 break;
         }
@@ -120,48 +123,52 @@ static cds_bool _hashTupleComp(const void* key1, const void* key2, const KeyType
         switch (key_type){
             case STR_TUPLE_KEY:
                 if (!STR_KEY_COMP(_key1, _key2)){
-                    return false;
+                    goto exit_loop;
                 }
                 break;
             case INT_TUPLE_KEY:
                 if (!NUM_KEY_COMP(_key1, _key2, cds_intkey)){
-                    return false;
+                    goto exit_loop;
                 }
                 break;
             case UINT_TUPLE_KEY:
                  if (!NUM_KEY_COMP(_key1, _key2, cds_uintkey)){
-                    return false;
+                    goto exit_loop;
                 }
                 break;
             default:
-                break;
+                goto exit_loop;
         }
     }
     return true;
+
+    exit_loop:
+    return false;
 }
 
 static cds_bool _hashKeyComp(const void* key1, const void* key2, const KeyType key_type){
+    cds_bool result = false;
     switch (key_type) {
         case INT_KEY: 
-            return NUM_KEY_COMP(key1, key2, cds_intkey);
+            result =  NUM_KEY_COMP(key1, key2, cds_intkey);
             break;
         case UINT_KEY:
-            return NUM_KEY_COMP(key1, key2, cds_uintkey);
+            result =  NUM_KEY_COMP(key1, key2, cds_uintkey);
             break;
         case STR_KEY:
-            return STR_KEY_COMP(key1, key2);
+            result =  STR_KEY_COMP(key1, key2);
             break;
         case STR_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, STR_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, STR_TUPLE_KEY);
             break;
         case INT_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, INT_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, INT_TUPLE_KEY);
             break;
         case UINT_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, UINT_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, UINT_TUPLE_KEY);
             break;
-
     }
+    return result;
 }
 
 /*
@@ -190,8 +197,8 @@ HashTable* htCreate(const HashFunction hash_fun, const cds_size min_capacity,
     if (!new_table){
         return (HashTable*) NULL;
     }
-    HTEntry* entries = (HTEntry*) calloc(capacity, sizeof(HTEntry));
-    if (!entries){
+    HTEntry* container = (HTEntry*) calloc(capacity, sizeof(HTEntry));
+    if (!container){
         //handle errors
         free(new_table);
         return (HashTable*) NULL;
@@ -200,7 +207,7 @@ HashTable* htCreate(const HashFunction hash_fun, const cds_size min_capacity,
     new_table->length = 0;
     new_table->key_type = key_type;
     new_table->hash_fun = hash_fun;
-    new_table->entries = entries;
+    new_table->container = container;
     return new_table;
 }
 
@@ -208,7 +215,7 @@ void htDelete(HashTable* table){
     if (!table){ 
         return;
     }
-    free(table->entries);
+    free(table->container);
     free(table);
 }
 
@@ -218,10 +225,10 @@ cds_bool htSearch(const HashTable* const ht, const void* key){
         return false;
     }
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || ht->entries[index].is_tombstone){
-        if (ht->entries[index].is_tombstone){
+    while (ht->container[index].key || ht->container[index].is_tombstone){
+        if (ht->container[index].is_tombstone){
             //pass
-        }else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+        }else if (_hashKeyComp(ht->container[index].key, key, ht->key_type)){
             return true;
         }
         index++;
@@ -242,29 +249,29 @@ static bool _htExpand(HashTable* ht){
     if (new_capacity <= ht->capacity){
         return false;
     }
-    HTEntry* new_entries = (HTEntry*) calloc(new_capacity, sizeof(HTEntry));
-    if (!new_entries){
+    HTEntry* new_container = (HTEntry*) calloc(new_capacity, sizeof(HTEntry));
+    if (!new_container){
         return false;
     }
     cds_size new_index;
     for (cds_size index=0; index<ht->capacity; index++){
-        if (ht->entries[index].key){
+        if (ht->container[index].key){
             new_index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, 
-                                             ht->entries[index].key, new_capacity);
-            while (new_entries[new_index].key){
+                                             ht->container[index].key, new_capacity);
+            while (new_container[new_index].key){
                 new_index++;
                 if (new_capacity == new_index){
                     new_index = 0;
                 }
             }
-            new_entries[new_index].key = ht->entries[index].key;
-            new_entries[new_index].key_size = ht->entries[index].key_size;
-            new_entries[new_index].data = ht->entries[index].data;
-            new_entries[new_index].data_size = ht->entries[index].data_size;
+            new_container[new_index].key = ht->container[index].key;
+            new_container[new_index].key_size = ht->container[index].key_size;
+            new_container[new_index].data = ht->container[index].data;
+            new_container[new_index].data_size = ht->container[index].data_size;
         }
     }
-    free(ht->entries);
-    ht->entries = new_entries;
+    free(ht->container);
+    ht->container = new_container;
     ht->capacity = new_capacity;
     return true;
 }
@@ -272,12 +279,12 @@ static bool _htExpand(HashTable* ht){
 static cds_bool _htSetData(HashTable* ht, const void* key, const cds_size key_size,
                            const void* data, const cds_size data_size){
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || ht->entries[index].is_tombstone){
-        if (ht->entries[index].is_tombstone){
+    while (ht->container[index].key || ht->container[index].is_tombstone){
+        if (ht->container[index].is_tombstone){
             break;
         }
-        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
-            _htUpdateEntry(&ht->entries[index], data, data_size);
+        else if (_hashKeyComp(ht->container[index].key, key, ht->key_type)){
+            _htUpdateEntry(&ht->container[index], data, data_size);
             return true;
         }
         index++;
@@ -285,11 +292,11 @@ static cds_bool _htSetData(HashTable* ht, const void* key, const cds_size key_si
             index = 0;
         }
     }
-    ht->entries[index].is_tombstone = false;
-    ht->entries[index].key = key;
-    ht->entries[index].data = data;
-    ht->entries[index].data_size = data_size;
-    ht->entries[index].key_size = key_size;
+    ht->container[index].is_tombstone = false;
+    ht->container[index].key = key;
+    ht->container[index].data = data;
+    ht->container[index].data_size = data_size;
+    ht->container[index].key_size = key_size;
     ht->length++;
     return true;
 }
@@ -317,15 +324,15 @@ cds_size htCapacity(const HashTable* const ht){
 
 const void* htGet(const HashTable* ht, const void* key, cds_size* pdata_size){
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || ht->entries[index].is_tombstone){
-        if (ht->entries[index].is_tombstone){
+    while (ht->container[index].key || ht->container[index].is_tombstone){
+        if (ht->container[index].is_tombstone){
             //pass
         }
-        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
+        else if (_hashKeyComp(ht->container[index].key, key, ht->key_type)){
             if (pdata_size){
-                *pdata_size = ht->entries[index].data_size;
+                *pdata_size = ht->container[index].data_size;
             }
-            return ht->entries[index].data;
+            return ht->container[index].data;
         }
         index++;
         if (ht->capacity == index){
@@ -337,17 +344,17 @@ const void* htGet(const HashTable* ht, const void* key, cds_size* pdata_size){
 
 const void* htPop(HashTable* ht, const void* key){ 
     cds_size index = _hashGetIndexFromKey(ht->hash_fun, ht->key_type, key, ht->capacity);
-    while (ht->entries[index].key || ht->entries[index].is_tombstone){
-        if (ht->entries[index].is_tombstone){
+    while (ht->container[index].key || ht->container[index].is_tombstone){
+        if (ht->container[index].is_tombstone){
             //pass
         }
-        else if (_hashKeyComp(ht->entries[index].key, key, ht->key_type)){
-            ht->entries[index].is_tombstone = true;
-            ht->entries[index].key = NULL;
-            ht->entries[index].key_size = 0;
-            const void* data = ht->entries[index].data;
-            ht->entries[index].data = NULL;
-            ht->entries[index].data_size = 0;
+        else if (_hashKeyComp(ht->container[index].key, key, ht->key_type)){
+            ht->container[index].is_tombstone = true;
+            ht->container[index].key = NULL;
+            ht->container[index].key_size = 0;
+            const void* data = ht->container[index].data;
+            ht->container[index].data = NULL;
+            ht->container[index].data_size = 0;
             ht->length--;
             return data;
         }
@@ -377,8 +384,8 @@ Set* setCreate(const size_t min_capacity, const HashFunction hash_fun,
         return (Set*) NULL;
     }
     size_t capacity = 1 << pow;
-    SetEntry* entries = (SetEntry*) calloc(capacity, sizeof(SetEntry*));
-    if (!entries){
+    SetEntry* container = (SetEntry*) calloc(capacity, sizeof(SetEntry*));
+    if (!container){
         free(new_set);
         return (Set*) NULL;
     }
@@ -386,7 +393,7 @@ Set* setCreate(const size_t min_capacity, const HashFunction hash_fun,
     new_set->capacity = capacity;
     new_set->length = 0;
     new_set->hash_fun = hash_fun;
-    new_set->entries = entries;
+    new_set->container = container;
     return new_set;
 }
 
@@ -394,7 +401,7 @@ void setDelete(Set* set){
     if (!set){
         return;
     }
-    free((void*) set->entries);
+    free((void*) set->container);
     free((void*) set);
 }
 
@@ -403,10 +410,10 @@ bool setInsert(Set *set, const void *key, const cds_size key_size){
         return false;
     }
     cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
-    while (set->entries[index].key || set->entries[index].is_tombstone){
-        if (set->entries[index].is_tombstone){
+    while (set->container[index].key || set->container[index].is_tombstone){
+        if (set->container[index].is_tombstone){
             break;
-        }else if (_hashKeyComp(set->entries[index].key, key, set->key_type)){
+        }else if (_hashKeyComp(set->container[index].key, key, set->key_type)){
             return true;
         }
         index++;
@@ -414,9 +421,9 @@ bool setInsert(Set *set, const void *key, const cds_size key_size){
             index  = 0;
         }
     }
-    set->entries[index].is_tombstone = false;
-    set->entries[index].key = key;
-    set->entries[index].key_size = key_size;
+    set->container[index].is_tombstone = false;
+    set->container[index].key = key;
+    set->container[index].key_size = key_size;
     return true;
 }
 
@@ -425,10 +432,10 @@ bool setSearch(const Set *const set, const void *const key){
         return false;
     }
     cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
-    while (set->entries[index].key || set->entries[index].is_tombstone){
-        if (set->entries[index].is_tombstone){
+    while (set->container[index].key || set->container[index].is_tombstone){
+        if (set->container[index].is_tombstone){
             //pass
-        }else if (_hashKeyComp(set->entries[index].key,key,set->key_type)){
+        }else if (_hashKeyComp(set->container[index].key,key,set->key_type)){
             return true;
         }
         index++;
@@ -444,14 +451,14 @@ const void* setPop(Set* const set, const void* key){
         return NULL;
     }
     cds_size index = _hashGetIndexFromKey(set->hash_fun, set->key_type, key, set->capacity);
-    while (set->entries[index].key || set->entries[index].is_tombstone){
-        if (set->entries[index].is_tombstone){
+    while (set->container[index].key || set->container[index].is_tombstone){
+        if (set->container[index].is_tombstone){
             //pass
-        }else if (_hashKeyComp(set->entries[index].key,key,set->key_type)){
-            const void* data = set->entries[index].key;
-            set->entries[index].key = NULL;
-            set->entries[index].key_size = 0;
-            set->entries[index].is_tombstone = true;
+        }else if (_hashKeyComp(set->container[index].key,key,set->key_type)){
+            const void* data = set->container[index].key;
+            set->container[index].key = NULL;
+            set->container[index].key_size = 0;
+            set->container[index].is_tombstone = true;
             return data;
         }
         index++;

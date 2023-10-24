@@ -9,6 +9,7 @@
 #include "../include/linear.h"
 #include "../include/_private_hash.h"
 #include <string.h>
+#include <stdarg.h>
 
 enum ContainerType{
     CDS_VECTOR,
@@ -26,11 +27,7 @@ enum ContainerType{
 
 #define CAPACITY(container) (container? container->capacity: 0)
 
-
-/**
- * 
- * ------------
-*/
+/**/
 struct Vector{
     cds_size length;
     cds_size capacity;
@@ -159,7 +156,7 @@ cds_bool vectorPush(Vector* const vec, void* data){
     if (vec->length + 1 > vec->capacity){
         return false;
     }
-    memmove(CDS_BYTE_OFFSET(vec->container, vec->length*vec->data_size), data, vec->data_size);
+    (void) memmove(CDS_BYTE_OFFSET(vec->container, vec->length*vec->data_size), data, vec->data_size);
     vec->length++;
     return true;
 }
@@ -169,7 +166,7 @@ void* vectorUpdate(Vector* const vec, void* data, const cds_size index){
         return (void*) NULL;
     }
     void* _data = vectorGetAt(vec, index);
-    memmove(CDS_BYTE_OFFSET(vec->container, index*vec->data_size), data, vec->data_size);
+    (void) memmove(CDS_BYTE_OFFSET(vec->container, index*vec->data_size), data, vec->data_size);
     return _data;
 }
 /** Get the number elements of an dynamic array */
@@ -182,7 +179,7 @@ cds_size vectorCapacity(const Vector* const vec){
 }
 /**
  * Shrinks the vector to half of its current capacity.
-*/
+
 static cds_bool _vectorShrink(Vector* const vec){
     cds_size new_capacity = vec->capacity / 2;
     if (!new_capacity){
@@ -197,25 +194,60 @@ static cds_bool _vectorShrink(Vector* const vec){
     return true;
 }
 
+*/
+
 /**
  * TUPLES
  * ------
 */
 
-Tuple* tupleCreate(const void* const arr, const size_t length, const size_t data_size){
-    if (!arr || 0 == length){
-        return (Tuple*) NULL;
-    }
+Tuple* tupleCreate(const cds_size data_size, const cds_size length, ...){
     Tuple* new_tuple = (Tuple*) malloc(sizeof(Tuple));
     if (!new_tuple){
         return (Tuple*) NULL;
+    }    
+    if (!data_size || 0 == length){
+        new_tuple->data_size = 0;
+        new_tuple->length = 0;
+        new_tuple->container = NULL;
+        return new_tuple;
+    }
+    void* container = malloc(length * data_size);
+    if (!container){
+        free(new_tuple);
+        return (Tuple*) NULL;
+    }
+    va_list args;
+    va_start(args, length);
+    void* data = NULL;
+    for (cds_size i=0; i<length; i++){
+        data = va_arg(args, void*);
+        (void) memmove(CDS_BYTE_OFFSET(container, i*data_size), data, data_size);
+    }
+    va_end(args);
+    new_tuple->length = length;
+    new_tuple->data_size = 0;
+    new_tuple->container = container;
+    return new_tuple;
+}
+
+Tuple* tupleFromArray(const void* const arr, const size_t length, const size_t data_size){
+    Tuple* new_tuple = (Tuple*) malloc(sizeof(Tuple));
+    if (!new_tuple){
+        return (Tuple*) NULL;
+    }    
+    if (!arr || 0 == length){
+        new_tuple->data_size = 0;
+        new_tuple->length = 0;
+        new_tuple->container = NULL;
+        return new_tuple;
     }
     void* container = (void*) malloc(length*data_size);
     if (!container){
         free(new_tuple);
         return (Tuple*) NULL;
     }
-    memcpy(container, arr, length*data_size);
+    (void) memmove(container, arr, length*data_size);
     new_tuple->container = (const void*) container;
     new_tuple->length = length;
     new_tuple->data_size = data_size;
@@ -226,7 +258,9 @@ void tupleDelete(Tuple* tuple){
     if (!tuple){
         return;
     }
-    free((void*) tuple->container);
+    if (tuple->container){
+        free((void*) tuple->container);
+    }
     free(tuple);
 }
 
@@ -261,12 +295,15 @@ struct SLList{
 /** Creator function for the singly linked list strucutre */
 
 SLList* sllCreate(const cds_size data_size){
-    return &(SLList){
-        .data_size = data_size,
-        .length = 0,
-        .head = (SLLNode*) NULL,
-        .tail = (SLLNode*) NULL,
-    };
+    SLList* new_list = (SLList*) malloc(sizeof(SLList));
+    if (!new_list){
+        return (SLList*) NULL;
+    }
+    new_list->data_size = data_size;
+    new_list->length = 0;
+    new_list->head = (SLLNode*) NULL;
+    new_list->tail = (SLLNode*) NULL;
+    return new_list;
 }
 
 void sllDelete(SLList* list){
@@ -324,15 +361,17 @@ cds_bool sllAppend(SLList* list, void* data){
 */
 struct Iter{
     cds_size index;
+    cds_size index_max;
+    cds_size data_size; // for linear containers
     enum IterableType type;
-    union {
-        Vector*     vec;
-        Tuple*      tuple;
-        SLLNode*    head;
-        HashTable*  ht;
-        Set*        set;
-    };
+    const void* container;
 };
+
+#define GET_CONTAINER(ptr_s, type) ((type*) ptr_s)->container
+#define GET_LENGTH(ptr_s, type) ((type*) ptr_s)->length
+#define GET_CAPACITY(ptr_s, type) ((type*) ptr_s)->capacity
+#define GET_SLL_HEAD(ptr_s, type) ((type*) ptr_s)->head
+#define GET_DATA_SIZE(ptr_s, type) ((type*) ptr_s)->data_size
 
 Iter* iterCreate(const void* const container, const enum IterableType type){
     if (!container){
@@ -344,18 +383,29 @@ Iter* iterCreate(const void* const container, const enum IterableType type){
     }
     switch (type){
         case VECTOR:
-            new_iter->vec = (Vector*) container;
+            new_iter->container = GET_CONTAINER(container, Vector);
+            new_iter->index_max = GET_LENGTH(container, Vector);
+            new_iter->data_size = GET_DATA_SIZE(container, Vector);
             break;
         case TUPLE:
-            new_iter->tuple = (Tuple*) container;
+            new_iter->container = GET_CONTAINER(container, Tuple);
+            new_iter->index_max = GET_LENGTH(container, Tuple);
+            new_iter->data_size = GET_DATA_SIZE(container, Tuple);
+            break;
         case SLLIST:
-            new_iter->head = ((SLList*) container)->head;;
+            new_iter->container = GET_SLL_HEAD(container, SLList);
+            new_iter->index_max = GET_LENGTH(container, SLList);
+            new_iter->data_size = GET_DATA_SIZE(container, SLList);
             break;
         case HASH_TABLE:
-            new_iter->ht = (HashTable*) container;
+            new_iter->container = GET_CONTAINER(container, HashTable);
+            new_iter->index_max = GET_CAPACITY(container, HashTable);
+            new_iter->data_size = sizeof(HTEntry);
             break;
         case SET:
-            new_iter->set = (Set*) container;
+            new_iter->container = GET_CONTAINER(container, Set);
+            new_iter->index_max = GET_CAPACITY(container, Set);
+            new_iter->data_size = sizeof(SetEntry);
             break;
     }
     new_iter->type = type;
@@ -367,59 +417,28 @@ void iterDelete(Iter* iter){
     free(iter);
 }
 
+#define HT_CHECK_CONT(ptr_c, type, index, capacity) ( ( (((type*) ptr_c)[index].key) || \
+    !((((type*) ptr_c)[index]).is_tombstone) ) && (index < capacity) )
+
 Iter* iterNext(Iter* iter){
     if (!iter){
         return (Iter*) NULL;
     }
     switch (iter->type){
-        case VECTOR:
-        if (iter->vec->length == iter->index){
-            iterDelete(iter);
-            return (Iter*) NULL;
-        }else{
-            iter->index++;
-        }
-        break;
-        case TUPLE:
-        if (iter->tuple->length == iter->index){
-            iterDelete(iter);
-            return (Iter*) NULL; 
-        }else{
-            iter->index++;
-        }
-        break;
         case SLLIST:
-        if (!iter->head){
-            iterDelete(iter);
-            return (Iter*) NULL;
-        }else{
-            iter->head = iter->head->next;
             iter->index++;
-        }
-        break;
-        case HASH_TABLE:
-            if (iter->ht->capacity == iter->index){
+            iter->container = (void*) ((SLLNode*) iter->container)->next;
+            if (iter->index_max == iter->index){
                 iterDelete(iter);
                 return (Iter*) NULL;
-            }else{
-                while (!iter->ht->entries[iter->index].key || 
-                       !iter->ht->entries[iter->index].is_tombstone){
-                    iter->index++;
-                }
             }
-        break;
-        case SET:            
-            if (iter->set->capacity == iter->index){
+            break;
+        default:
+            iter->index++;
+            if (iter->index_max == iter->index){
                 iterDelete(iter);
                 return (Iter*) NULL;
-            }else{
-                while (!iter->set->entries[iter->index].key || 
-                       !iter->set->entries[iter->index].is_tombstone){
-                    iter->index++;
-                }
             }
-
-        break;
     }
     return iter;
 }
@@ -431,20 +450,19 @@ const void* iterGetData(const Iter* const iter){
     const void* data = NULL;
     switch (iter->type){
         case VECTOR:
-            data = vectorGetAt(iter->vec, iter->index);
-
+            data = CDS_BYTE_OFFSET(iter->container, iter->index * iter->data_size);
             break;
         case TUPLE:
-            data = tupleGetAt(iter->tuple, iter->index);
+            data = CDS_BYTE_OFFSET(iter->container, iter->index * iter->data_size);
             break;
         case SLLIST:
-            data = iter->head->data;
+            data = ((SLLNode*) iter->container)->data;
             break;
         case HASH_TABLE:
-            data = iter->ht->entries[iter->index].key;
+            data = ((HTEntry*) CDS_BYTE_OFFSET(iter->container, iter->index * iter->data_size))->key;
             break;
         case SET:
-            data = iter->set->entries[iter->index].key;
+            data = ((SetEntry*) CDS_BYTE_OFFSET(iter->container, iter->index * iter->data_size))->key;
             break;
     }
     return data;

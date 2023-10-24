@@ -1,5 +1,7 @@
 docs/html/
 docs/html/*
+bin/
+bin/*
 *.d
 *.so
 *.a
