@@ -1,5 +1,5 @@
 # Introduction
-**Common Data Structures** (CDS): A collection of data structures and algorithms commonly used. It is included APIs for the following data structures:
+**Common Data Structures** (CDS): A collection of data structures and algorithms commonly used. It includes APIs for the following data structures:
 
 - **Vector**: A dynamic allocated array inspired by the C++ `std::vector` class.
 - **Tuple**: An immutable array-like structure inspired by Python's `tuple` class.
@@ -12,7 +12,7 @@
 All data structures provided here are generic, in the sense that, in principle, any data type is accepted. 
 
 # Compound literals
-All container types stores values instead of references. As such, when initializing structures, the user can use [https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html](compond literals):
+All container types store values instead of references. As such, when initializing structures, the user can use [compond literals](https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html):
 ```c
 Vector* v = vectorCreate(10UL, sizeof(cds_size));
 vectorPush(v, &(int){1});
@@ -56,13 +56,13 @@ typedef cds_int32       cds_intkey;
 ```
 
 # Linear Containers
-The `linear.h` defdines types of linear container data structures. It contains type definition and methods for the follwoing data structures:
+The `linear.h` defines types of linear container data structures. It contains type definitions and methods for the following data structures:
 - **Vector** 
 - **Tuple**
 - **SLList**
 - **Stack**:
 - **Queue**: 
-The `linear` API also provides a iterator structure and methods capable of dealing with some of the containers in the `linear` API and the `hash` API. The iterable containers are described by the enumerarion
+The `linear` API also provides an iterator structure and methods capable of dealing with some containers in the `linear` API and the `hash` API. The following enumeration describes the iterable containers:
 ```c
 enum IterableType{
     VECTOR,
@@ -76,7 +76,7 @@ enum IterableType{
 We show below simple examples of dealing with the vector structure:
 
 #### Simple Example
-Below a simple example of creating initializing and deleting a vector:
+Below is a simple example of creating initializing and deleting a vector:
 ```c
 #include <stdio.h>
 #include "linear.h"
@@ -98,7 +98,7 @@ int main(void){
 }
 ```
 ### Iterating over Vectors
-Below a simple example iterationg data over vector.
+Below is a simple example of iterating data over a vector.
 ```c
 #include <stdio.h>
 #include "../include/linear.h"
@@ -126,7 +126,7 @@ int main(void){
     return 0;
 }
 ```
-Note that you only need to call `iterDelete` if the loop is interrupted before it reaches the end of the vector, since the `iterNext` function delete the iterator and set it to `NULL` at the end of the iteration.
+Note that you only need to call `iterDelete` if the loop is interrupted before it reaches the end of the vector since the `iterNext` function deletes the iterator and sets it to `NULL` at the end of the iteration.
 
 ## Tuple 
 
