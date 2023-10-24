@@ -12,7 +12,7 @@
 All data structures provided here are generic, in the sense that, in principle, any data type is accepted. 
 
 # Compound literals
-All container types store values instead of references. As such, when initializing structures, the user can use [compond literals](https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html):
+All container types store values instead of references. As such, when initializing structures, the user can use [compound literals](https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html):
 ```c
 Vector* v = vectorCreate(10UL, sizeof(cds_size));
 vectorPush(v, &(int){1});
@@ -172,6 +172,7 @@ TO-DO
 TO-DO
 
 # TO-DO:
+- make sure that the `iterGetData` function only retrieves non-null keys for the hashing types.
 - add unit tests;
 - Add error handling;
 - Add cross-compiler preprocessors;
