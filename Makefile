@@ -1,6 +1,6 @@
 .PHONY: clean lib examples doxygen
 CC := gcc
-OPTS := -fPIC -g #-O3
+OPTS := -fPIC -g -O3
 INCLUDES := ./include/
 # generate files that include make rules for header files
 DEPFLAGS := -MP -MD
