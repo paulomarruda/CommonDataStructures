@@ -36,11 +36,14 @@ static cds_hash _fnv1aHashTuple(const void* key, const KeyType key_type, cds_has
     for (cds_size i=0; i < tupleLength(tuple); i++){
         switch (key_type){
             case STR_TUPLE_KEY:
-                _fnv1aHashStr(tupleGetAt(tuple, i), phash);
+                (void) _fnv1aHashStr(tupleGetAt(tuple, i), phash);
+                break;
             case INT_TUPLE_KEY:
-                _fnv1aHashNumber(tupleGetAt(tuple, i), phash);
+                (void) _fnv1aHashNumber(tupleGetAt(tuple, i), phash);
+                break;
             case UINT_TUPLE_KEY:
-                _fnv1aHashStr(tupleGetAt(tuple,i), phash);
+                (void) _fnv1aHashStr(tupleGetAt(tuple,i), phash);
+                break;
             default:
                 break;
         }
@@ -141,27 +144,28 @@ static cds_bool _hashTupleComp(const void* key1, const void* key2, const KeyType
 }
 
 static cds_bool _hashKeyComp(const void* key1, const void* key2, const KeyType key_type){
+    cds_bool result = false;;
     switch (key_type) {
         case INT_KEY: 
-            return NUM_KEY_COMP(key1, key2, cds_intkey);
+            result = NUM_KEY_COMP(key1, key2, cds_intkey);
             break;
         case UINT_KEY:
-            return NUM_KEY_COMP(key1, key2, cds_uintkey);
+            result =  NUM_KEY_COMP(key1, key2, cds_uintkey);
             break;
         case STR_KEY:
-            return STR_KEY_COMP(key1, key2);
+            result =  STR_KEY_COMP(key1, key2);
             break;
         case STR_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, STR_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, STR_TUPLE_KEY);
             break;
         case INT_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, INT_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, INT_TUPLE_KEY);
             break;
         case UINT_TUPLE_KEY:
-            return _hashTupleComp(key1, key2, UINT_TUPLE_KEY);
+            result = _hashTupleComp(key1, key2, UINT_TUPLE_KEY);
             break;
-
     }
+    return result;
 }
 
 /*
