@@ -1,6 +1,6 @@
 .PHONY: clean lib examples doxygen
 CC := gcc
-OPTS := -fPIC -g -O3
+OPTS := -fPIC -g -ggdb -O3
 INCLUDES := ./include/
 # generate files that include make rules for header files
 DEPFLAGS := -MP -MD
@@ -13,13 +13,16 @@ BIN := bin
 LIBS := -L ./$(BIN)/
 AR := ar
 ARFLAGS := rcs
+
 all: lib examples
+
 %/:
 	@ echo "* Preparing bin/ folder"
 	@ mkdir -p ./$@
 	@echo "	Done :)"
 %.o:%.c
 	@ $(CC) $(CFLAGS) -c $< -o $(bin)$@
+
 lib: $(SRC_O) | $(BIN)/
 	@ echo "* Compiling shared library libCDS"
 	@ $(CC) $(CFLAGS) -shared $(SRC_O) -o ./$(BIN)/libCDS.so
@@ -27,12 +30,24 @@ lib: $(SRC_O) | $(BIN)/
 	@ echo "* Compiling the static library libCDS"
 	@ $(AR) $(ARFLAGS) ./$(BIN)/libCDS-static.a $(SRC_O)
 	@ echo "	Done :)"
+
 examples: $(EXMP) lib | $(BIN)/
-	@ echo "* Compiling the examples =="
+	@ echo "* Compiling the examples"
 	@ $(foreach T, $(EXMP), \
-	  $(CC) $(CFLAGS) $(T) $(LIBS) -lCDS-static -o $(patsubst %.c, %.out, $(T));)
+	    $(CC) $(CFLAGS) $(T) $(LIBS) -lCDS-static -o $(patsubst %.c, %.out, $(T));)
 	@ echo "	Done :)"
+
 doxygen: ./docs/
+
+tests: $(TESTS) lib
+	@ echo "* Compiling tests"
+	@ $(foreach T, $(TESTS), \
+		$(CC) $(CFLAGS) $(T) $(LIBS) -lCDS-static -lcriterion -o $(patsubst %.c, %.out, $(T));)
+	@ echo "	Done :)"
+	@ echo "* Running the tests"
+	@ $(foreach T, $(TESTS), \
+		echo $(T); \
+		./$(patsubst %.c,%.out,$(T));)
 
 clean:
 	@ echo "* Deleting all .o, .d and .o files"

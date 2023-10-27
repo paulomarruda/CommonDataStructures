@@ -9,16 +9,17 @@
 #include "../include/linear.h"
 
 int main(void){
-    Vector* v = vectorCreate(10, sizeof(cds_size));
-    for (cds_size i=0; i<10; i++){
-        (void) vectorPush(v, &(cds_size){i});
+    Vector* v = vectorCreate(1000, sizeof(cds_size));
+    for (cds_size i=0; i<1000; i++){
+        (void) vectorPrepend(v, &i);
     }
     printf("Length: %zu\nCapacity: %zu\n", vectorLength(v), vectorCapacity(v));
-    void* data = vectorGetAt(v, 5);
-    if (data)
-        printf("Retrieving element %d at position %zu\n", *(int*) data, 5UL);
-    else{
-        printf("Failed to retrieve\n");
+    const void* data;
+    for (cds_size i=0; i<vectorLength(v); i++){
+        data = vectorGetAt(v, i);
+        if (data){
+            printf("v[%4zu] = %4zu.\n", i, *(cds_size*)data);
+        }
     }
     vectorDelete(v);
     return 0;

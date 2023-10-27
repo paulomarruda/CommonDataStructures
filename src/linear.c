@@ -5,7 +5,6 @@
  * @brief Implementation of the linear API.
 */
 
-
 #include "../include/linear.h"
 #include "../include/_private_hash.h"
 #include <string.h>
@@ -81,9 +80,6 @@ static cds_bool _checkIndex(const void* const container, const enum ContainerTyp
 */
 Vector* vectorCreate(const cds_size min_capacity, const cds_size data_size){
     if (min_capacity <= 0){
-        _raise(STATUS_INVALID_SIZE,
-               LINEAR_DEFAULT_STATUS_ACTION_INVALID_SIZE,
-               "Invalid size. Returning NULL.\n");
         return (Vector*) NULL;
     }
     Vector* new_vec = (Vector*) malloc(sizeof(Vector));
@@ -92,9 +88,6 @@ Vector* vectorCreate(const cds_size min_capacity, const cds_size data_size){
     }
     cds_size pow = _log2(min_capacity) + 1;
     if (pow >= _MAX_POW2_){
-        _raise(STATUS_INVALID_SIZE,
-               LINEAR_DEFAULT_STATUS_ACTION_INVALID_SIZE,
-               "Invalid minimum capacity.\n");
         free(new_vec);
         return (Vector*) NULL;
     }
@@ -111,6 +104,52 @@ Vector* vectorCreate(const cds_size min_capacity, const cds_size data_size){
     return new_vec;
 }
 
+Vector* vectorFromArray(const void* arr, const cds_size data_size, const cds_size arr_len){
+    Vector* new_vec = vectorCreate(arr_len, data_size);
+    if (!new_vec){
+        return (Vector*) NULL;
+    }
+    if (!arr || 0 == data_size){
+        return new_vec;
+    }
+    (void) memmove(new_vec->container, arr, arr_len*data_size);
+    new_vec->length = arr_len;
+    return new_vec;
+}
+
+Vector* vectorCopy(const Vector* const vec){
+    Vector* copy = (Vector*) malloc(sizeof(Vector));
+    if (!copy){
+        return (Vector*) NULL;
+    }
+    void* container = malloc(vec->capacity * vec->data_size);
+    if (!container){
+    free(copy);
+        return (Vector*) NULL;
+    }
+    copy->container = container;
+    if (vec->length > 0){
+        (void) memmove(copy->container, vec->container, vec->length*vec->data_size);
+    }
+    copy->length = vec->length;
+    copy->data_size = vec->data_size;
+    copy->capacity = vec->capacity;
+    return copy;
+}
+
+Vector* vectorFromValues(const cds_size data_size, const cds_size num_values, ...){
+    Vector* new_vec = vectorCreate(num_values, data_size);
+    va_list args;
+    va_start(args, num_values);
+    for (cds_size i=0; i<num_values; i++){
+        void* data = va_arg(args, void*);
+        (void) memmove(CDS_BYTE_OFFSET(new_vec->container, i*data_size), data, data_size);
+    }
+    va_end(args);
+    new_vec->length = num_values;
+    return new_vec;
+}
+
 /** Destructor function for the dynamic structure. */
 void vectorDelete(Vector* vec){
     if (!vec){
@@ -120,7 +159,7 @@ void vectorDelete(Vector* vec){
     free(vec);
 }
 
-void* vectorGetAt(const Vector* const vec, const size_t index){
+const void* vectorGetAt(const Vector* const vec, const size_t index){
     if (!_checkIndex(vec, CDS_VECTOR, index)){
         return (void*) NULL;
     }
@@ -134,12 +173,9 @@ void* vectorGetAt(const Vector* const vec, const size_t index){
 static cds_bool _vectorExpand(Vector* vec){
     cds_size new_capacity = vec->capacity << 1;
     if (new_capacity <= vec->capacity){
-        _raise(STATUS_TYPE_OVERFLOW,
-               LINEAR_DEFAULT_STATUS_ACTION_TYPE_OVERFLOW,
-               "Overflow of size. Container not expanded.\n");
         return false;
     }
-    void* new_container = (void*) realloc(vec->container, new_capacity);
+    void* new_container = (void*) realloc(vec->container, new_capacity * vec->data_size);
     if (!new_container){
         return false;
     }
@@ -149,7 +185,7 @@ static cds_bool _vectorExpand(Vector* vec){
 }
 
 /** Push back function for the dynamic array structure */
-cds_bool vectorPush(Vector* const vec, void* data){
+cds_bool vectorPrepend(Vector* const vec, void* data){
     if ( ((double) vec->capacity) * _EXPANSION_RATE_CHECK <= (double) vec->length){
         (void) _vectorExpand(vec);
     }
@@ -165,7 +201,7 @@ void* vectorUpdate(Vector* const vec, void* data, const cds_size index){
     if (!_checkIndex(vec, CDS_VECTOR, index)){
         return (void*) NULL;
     }
-    void* _data = vectorGetAt(vec, index);
+    void* _data = (void*) vectorGetAt(vec, index);
     (void) memmove(CDS_BYTE_OFFSET(vec->container, index*vec->data_size), data, vec->data_size);
     return _data;
 }
@@ -173,17 +209,19 @@ void* vectorUpdate(Vector* const vec, void* data, const cds_size index){
 cds_size vectorLength(const Vector* const vec){
     return LENGTH(vec);
 }
+
 /** Get the current capacity of a dynamic array*/
 cds_size vectorCapacity(const Vector* const vec){
     return CAPACITY(vec);
 }
+
 /**
  * Shrinks the vector to half of its current capacity.
 
 static cds_bool _vectorShrink(Vector* const vec){
     cds_size new_capacity = vec->capacity / 2;
     if (!new_capacity){
-        return false;
+       return false;
     }
     void* new_container = (void*) realloc(vec->container, new_capacity*vec->data_size);
     if (!new_container){
@@ -196,6 +234,18 @@ static cds_bool _vectorShrink(Vector* const vec){
 
 */
 
+const void* vectorToArr(const Vector* const vec){
+    return vec->container;
+}
+
+Tuple* vectorToTuple(const Vector* const vec){
+    Tuple* tuple = tupleFromArray(vectorToArr(vec), vec->data_size, vec->length);
+    if (!tuple){
+        return (Tuple*) NULL;
+    }
+    return tuple;
+}
+
 /**
  * TUPLES
  * ------
@@ -206,50 +256,51 @@ Tuple* tupleCreate(const cds_size data_size, const cds_size length, ...){
     if (!new_tuple){
         return (Tuple*) NULL;
     }    
-    if (!data_size || 0 == length){
-        new_tuple->data_size = 0;
-        new_tuple->length = 0;
-        new_tuple->container = NULL;
-        return new_tuple;
-    }
     void* container = malloc(length * data_size);
     if (!container){
         free(new_tuple);
         return (Tuple*) NULL;
     }
+    if (!data_size || 0 == length){
+        new_tuple->data_size = 0;
+        new_tuple->length = 0;
+        new_tuple->container = container;
+        return new_tuple;
+    }
+    new_tuple->length = 0;
     va_list args;
     va_start(args, length);
     void* data = NULL;
     for (cds_size i=0; i<length; i++){
         data = va_arg(args, void*);
         (void) memmove(CDS_BYTE_OFFSET(container, i*data_size), data, data_size);
+        new_tuple->length++;
     }
     va_end(args);
-    new_tuple->length = length;
-    new_tuple->data_size = 0;
+    new_tuple->data_size = data_size;
     new_tuple->container = container;
     return new_tuple;
 }
 
-Tuple* tupleFromArray(const void* const arr, const size_t length, const size_t data_size){
+Tuple* tupleFromArray(const void* const arr, const size_t data_size, const size_t arr_len){
     Tuple* new_tuple = (Tuple*) malloc(sizeof(Tuple));
     if (!new_tuple){
         return (Tuple*) NULL;
     }    
-    if (!arr || 0 == length){
-        new_tuple->data_size = 0;
-        new_tuple->length = 0;
-        new_tuple->container = NULL;
-        return new_tuple;
-    }
-    void* container = (void*) malloc(length*data_size);
+    void* container = malloc(arr_len*data_size);
     if (!container){
         free(new_tuple);
         return (Tuple*) NULL;
     }
-    (void) memmove(container, arr, length*data_size);
+    if (!arr || 0 == arr_len){
+        new_tuple->data_size = 0;
+        new_tuple->length = 0;
+        new_tuple->container = container;
+        return new_tuple;
+    }
+    (void) memmove(container, arr, arr_len*data_size);
     new_tuple->container = (const void*) container;
-    new_tuple->length = length;
+    new_tuple->length = arr_len;
     new_tuple->data_size = data_size;
     return new_tuple;
 }
@@ -276,6 +327,13 @@ cds_size tupleLength(const Tuple* const tuple){
     return LENGTH(tuple);
 }
 
+const void* tupleToArr(const Tuple* const tuple){
+    return tuple->container;
+}
+
+Vector* tupleToVector(const Tuple* const tuple){
+    return vectorFromArray(tuple->container, tuple->data_size, tuple->length);
+}
 /**
  * SINGLY LINKED LIST
  * -------------------

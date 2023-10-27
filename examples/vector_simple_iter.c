@@ -2,9 +2,9 @@
 #include "../include/linear.h"
 
 int main(void){
-    Vector* v = vectorCreate(10UL, sizeof(cds_size));
-    for (cds_size i=0; i<10UL; i++){
-        (void) vectorPush(v, &(cds_size){i});
+    Vector* v = vectorCreate(1000, sizeof(cds_size));
+    for (cds_size i=0; i<1000; i++){
+        (void) vectorPrepend(v, &(cds_size){i});
     }
     Iter* iter = iterCreate(v, VECTOR);
     const void* data = NULL;

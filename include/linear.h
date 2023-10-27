@@ -39,18 +39,18 @@ extern "C" {
 
 /*!
  * @brief Opaque data type definition for the Vector structure.
- * @note The vector structure is a pure C implementation for the C++
- * `std::vector` class. It offers the following methods:
- * - `vectorCreate`;
- * - `vectorDelete`;
- * - `vectorPush`;
- * - `vectorGetAt`;
- * - `vectorPopAt`;
- * - `vectorLength`;
- * - `vectorUpdateAte`; and
- * - `vectorCapacity;`
+ * @note The vector structure is generic dynamic array inspired by the C++
+ * `std::vector` class.
 */
 typedef struct Vector Vector;
+
+/*!
+ * @brief Opaque definition for the tuple structure.
+ * @note The tuple API implements an immutable array-like structure inspired
+ * by Pythons's `tuple` class.
+*/
+
+typedef struct Tuple Tuple;
 
 /*!
  * @brief Constructor function for the vector structure.
@@ -61,26 +61,30 @@ typedef struct Vector Vector;
 */ 
 Vector* vectorCreate(const cds_size min_capacity, const cds_size data_size);
 
+Vector* vectorFromArray(const void* const arr, const cds_size data_size, const cds_size arr_len);
+
+Vector* vectorCopy(const Vector* const arr);
+
+Vector* vectorFromValues(const cds_size data_size, const cds_size num_values, ...);
 /*! 
-* @brief Destructor function for the Vector data type.
+* @brief Destructor function for the Vector structure.
  * @param vec A pointer to the vector..
 */ 
 void vectorDelete(Vector* vec);
 
 /*!
- * @brief Retrieve data from avector at specific a index.
+ * @brief Retrieve data from a vector at a especific index.
  * @param vec A pointer to the vector.
  * @param index The index where the data is stored.
- * @return A void pointer to the data, if any, or a `NULL` pointer if either
- * the vector is empty or the index is out of range.
+ * @return A void pointer to the data, if any, or a `NULL` pointer if either the vector
+ * is empty or the index is out of range.
 */
-void* vectorGetAt(const Vector* vec, const size_t index);
+const void* vectorGetAt(const Vector* vec, const size_t index);
 
 /*!
- * @brief Push a new data into the vector.
- * @note In the case that the length of the vector reaches 85% of the 
- * current capacity, this function will also expand the vector to
- * twice its current capacity.
+ * @brief Prepend a new data into the vector.
+ * @note In the case that the length of the vector reaches 85% of the  * current 
+ * capacity, this function will also expand the vector to twice its current capacity.
  * @param vec A pointer to the vector.
  * @param data A pointer to the data to be stored.
  * @return True if the insertion was sucesseful, or false otherwise.
@@ -88,7 +92,7 @@ void* vectorGetAt(const Vector* vec, const size_t index);
  * or to the data passed is `NULL` or the vector cannot expand itself further
  * and there is no space to store the new data.
 */
-cds_bool vectorPush(Vector* const vec, void* data);
+cds_bool vectorPrepend(Vector* const vec, void* data);
 
 /*!
  * @brief Returns the data stored at the the specified index and translate
@@ -100,8 +104,8 @@ cds_bool vectorPush(Vector* const vec, void* data);
  * @param index The index where the data should be retrieved and deleted.
  * @param shrink Determines whether the vector should shrink.
  * @return The data previously stored at the specified index, or a `NULL` 
- * pointer if either the vector is empty, the pointer to the vector or to the 
- * data is `NULL`, or the index passed is out of range.
+ * pointer if either the vector is empty, the pointer to the vector is `NULL`, or the 
+ * index passed is out of range.
 */
 void* vectorPopAt(Vector* vec, cds_size index, cds_bool shrink);
 
@@ -130,15 +134,24 @@ cds_size vectorLength(const Vector* const vec);
 */
 cds_size vectorCapacity(const Vector* const vec);
 
-/****************** Tuples *******************/
+/*!
+ * @brief Return a pointer to the memory allocated array container of vector.
+ * @note This pointer will be freed by `vectorDelete`.
+ * @param vec A pointer to the vector.
+ * @return A void pointer to the container of the vector.
+*/
+const void* vectorToArr(const Vector* const vec);
 
 /*!
- * @brief Opaque definition for the tuple structure.
- * @note The tuple API implements an immutable array-like structure inspired
- * by Pythons's `tuple` class.
+ * @brief Transform the vector into a tuple.
+ * @param vec A pointer to the vector.
+ * @return A pointer to the tuple if all memory allocations were successeful, or a `NULL`
+ * pointer if memory allocations failed or the pointer to the vector is `NULL`.
+ * @note If the vector is empty, an empty tuple will be returned.
 */
+Tuple* vectorToTuple(const Vector* const vec);
 
-typedef struct Tuple Tuple;
+/****************** Tuples *******************/
 
 /*!
  * @bried Create tuple from values
@@ -156,8 +169,8 @@ Tuple* tupleCreate(const cds_size length, const cds_size data_size, ...);
  * successeful, otherwise return a null pointer.
  * @raise
 */
-Tuple* tupleFromArray(const void* const arr, const cds_size length, const cds_size data_size);
 
+Tuple* tupleFromArray(const void* const arr, const size_t data_size, const size_t length);
 /**
  * @brief Destructor function for the tuple structure.
  * @param tuple A pointer to the tuple to be destroyed.
@@ -172,7 +185,22 @@ void tupleDelete(Tuple* tuple);
 */
 const void* tupleGetAt(const Tuple* const tuple, const cds_size index);
 
+/*!
+ * @brief Retrieve the length of the tuple.
+ * @para tuple A pointer to the tuple.
+ * @return The length of the tuple (assuming that the length of a `NULL` pointer it
+ * 0).
+*/
 cds_size tupleLength(const Tuple* const tuple);
+
+/*!
+ * @brief Converts the tuple into a vector.
+ * @param tuple A pointer to the tuple.
+ * @return A pointer to the vector if all memory allocations were successeful, or a `NULL`
+ * pointer if the allocations failed or a `NULL` pointer was passed.
+*/
+Vector* tupleToVector(const Tuple* const tuple);
+
 /**
  * SINGLY LINKED LIST
  * ------------------
@@ -304,7 +332,6 @@ void* stackPop(Stack* stack);
  * QUEUES
  * ------
 */
-
 typedef struct Queue Queue;
 
 Queue* queueCreate(cds_size data_size);
